@@ -92,7 +92,7 @@ async def query(audio: UploadFile = File(...), messages: str = Form(...), key: s
             available_functions = [tool["function"]["name"] for tool in available_tools]
             
             client = Client(host='https://ollama.com', headers={'Authorization': 'Bearer ' + OLLAMA_API_KEY})
-            for _ in range(10):
+            for _ in range(100):
                 response = client.chat('gpt-oss:20b-cloud', messages=messages, tools=available_tools)
                 messages.append(response.message)
                 if response.message.tool_calls:

@@ -24,8 +24,16 @@ CREDENTIALS_PATH = os.getenv("CREDENTIALS_PATH")
 app = FastAPI()
 header_scheme = APIKeyHeader(name="x-key")
 
+class Message(BaseModel):
+    role: str
+    content: str
 
-def verify_api_key(api_key: str = Depends(header_scheme)):
+class APIResponse(BaseModel):
+    query: Message
+    response: Message
+
+
+def verify_api_key(api_key: str = Depends(header_scheme)) -> APIResponse:
     if api_key != API_KEY:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -34,7 +42,7 @@ def verify_api_key(api_key: str = Depends(header_scheme)):
     return api_key
 
 @app.post("/query/")
-async def query(audio: UploadFile = File(...), messages: str = Form(...), key: str = Depends(verify_api_key)) -> Message:
+async def query(audio: UploadFile = File(...), messages: str = Form(...), key: str = Depends(verify_api_key)):
     messages = json.loads(messages)
 
     audio_recognizer = InferenceClient(provider="hf-inference", api_key=HF_TOKEN)
@@ -60,7 +68,6 @@ async def query(audio: UploadFile = File(...), messages: str = Form(...), key: s
         }
     )
 
-    messages_without_tools = [msg.copy() for msg in messages]
     # サーバ接続のためのクライアントストリームを確立
     async with stdio_client(server_params) as (read_stream, write_stream):
         async with ClientSession(read_stream, write_stream) as session:
@@ -99,6 +106,7 @@ async def query(audio: UploadFile = File(...), messages: str = Form(...), key: s
                                 messages.append({'role': 'tool', 'tool_name': tc.function.name, 'content': content.text})
                 else:
                     # end the loop when there are no more tool calls
-                    messages_without_tools.append({"role": "assistant", "content": response.message.content})
-                    return messages_without_tools
+                    message_query = Message(role="user", content=query)
+                    message_response = Message(role="assistant", content=response.message.content)
+                    return APIResponse(query=message_query, response=message_response)
             return {"error": "tool loop exceeded"}

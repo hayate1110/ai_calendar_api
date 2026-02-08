@@ -4,6 +4,7 @@ from fastapi.security import APIKeyHeader
 from dotenv import load_dotenv 
 import os
 import json
+from pydantic import BaseModel
 
 from mcp.client.stdio import stdio_client, StdioServerParameters
 from mcp import ClientSession
@@ -32,9 +33,8 @@ def verify_api_key(api_key: str = Depends(header_scheme)):
         )
     return api_key
 
-
 @app.post("/query/")
-async def query(audio: UploadFile = File(...), messages: str = Form(...), key: str = Depends(verify_api_key)):
+async def query(audio: UploadFile = File(...), messages: str = Form(...), key: str = Depends(verify_api_key)) -> Message:
     messages = json.loads(messages)
 
     audio_recognizer = InferenceClient(provider="hf-inference", api_key=HF_TOKEN)
@@ -60,6 +60,7 @@ async def query(audio: UploadFile = File(...), messages: str = Form(...), key: s
         }
     )
 
+    messages_without_tools = [msg.copy() for msg in messages]
     # サーバ接続のためのクライアントストリームを確立
     async with stdio_client(server_params) as (read_stream, write_stream):
         async with ClientSession(read_stream, write_stream) as session:
@@ -98,5 +99,6 @@ async def query(audio: UploadFile = File(...), messages: str = Form(...), key: s
                                 messages.append({'role': 'tool', 'tool_name': tc.function.name, 'content': content.text})
                 else:
                     # end the loop when there are no more tool calls
-                    return [msg for msg in messages if msg["role"] != "tool"]
+                    messages_without_tools.append({"role": "assistant", "content": response.message.content})
+                    return messages_without_tools
             return {"error": "tool loop exceeded"}

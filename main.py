@@ -20,6 +20,7 @@ API_KEY = os.getenv("API_KEY")
 OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY")
 HF_TOKEN = os.getenv("HF_TOKEN")
 CREDENTIALS_PATH = os.getenv("CREDENTIALS_PATH")
+GOOGLE_CALENDAR_MCP_TOKEN_PATH = os.getenv("GOOGLE_CALENDAR_MCP_TOKEN_PATH")
 
 app = FastAPI()
 header_scheme = APIKeyHeader(name="x-key")
@@ -64,7 +65,8 @@ async def query(audio: UploadFile = File(...), messages: str = Form(...), key: s
         command="npx", 
         args=["-y", "@cocal/google-calendar-mcp"],
         env={
-            "GOOGLE_OAUTH_CREDENTIALS": CREDENTIALS_PATH
+            "GOOGLE_OAUTH_CREDENTIALS": CREDENTIALS_PATH,
+            "GOOGLE_CALENDAR_MCP_TOKEN_PATH": GOOGLE_CALENDAR_MCP_TOKEN_PATH
         }
     )
 
